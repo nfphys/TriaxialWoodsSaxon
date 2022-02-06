@@ -37,7 +37,7 @@ greet() = print("Hello World!")
     Ny::Int64 = Nx
     Nz::Int64 = Nx
 
-    Δx = 0.8
+    Δx = 0.9
     Δy = Δx
     Δz = Δx
 
@@ -66,17 +66,29 @@ function calc_norm(Δx, Δy, Δz, ψ)
     sqrt(dot(ψ, ψ)*2Δx*2Δy*2Δz)
 end
 
-function imaginary_time_evolution!(states, param, Vs, Ws; Δt=0.1)
+
+function imaginary_time_evolution!(states, convergences, param, Vs, Ws; 
+        Δt=0.1, rtol_spE=1e-3)
     @unpack Nx, Ny, Nz, Δx, Δy, Δz, xs, ys, zs = param 
     @unpack nstates, ψs, spEs, qnums, occ = states
 
     @views for istate in 1:nstates 
+        if convergences[istate] 
+            continue
+        end
+
         Hmat = make_Hamiltonian(param, Vs, Ws, qnums[istate]) 
 
+        spE_old = calc_sp_energy(Hmat, ψs[:,istate])
+        Δt = 0.1
+        if spE_old > 5
+            Δt = 0.02
+        end
+
+        # imaginary time evolution 
         U₁ = I - 0.5Δt*Hmat
         U₂ = I + 0.5Δt*Hmat
-
-        ψs[:,istate] = U₂\(U₁*ψs[:,istate]) # ここがボトルネック
+        @time ψs[:,istate] = U₂\(U₁*ψs[:,istate]) 
 
         # gram schmidt orthogonalization 
         for jstate in 1:istate-1
@@ -86,36 +98,85 @@ function imaginary_time_evolution!(states, param, Vs, Ws; Δt=0.1)
 
         # normalization 
         ψs[:,istate] ./= calc_norm(Δx, Δy, Δz, ψs[:,istate])
-        spEs[istate] = calc_sp_energy(Hmat, ψs[:,istate])
+
+        # single particle energy
+        spE_new = calc_sp_energy(Hmat, ψs[:,istate])
+        if isapprox(spEs[istate], spE_new; rtol=rtol_spE)
+            convergences[istate] = true 
+        end
+        spEs[istate] = spE_new
     end
 
     return
 end
 
 
-function calc_states(param; β=0.0, γ=0.0, Δt=0.1, iter_max=20)
+function calc_states(param; β=0.0, γ=0.0, Nmax=2,
+        Δt=0.1, iter_max=5, show_result=false)
+
     @unpack Nx, Ny, Nz, xs, ys, zs = param 
-    N = Nx*Ny*Nz
 
     Vs, Ws = calc_potential(param, β, γ)
 
-    states = initial_states(param, β, γ)
+    states = initial_states(param, β, γ; Nmax=Nmax)
     sort_states!(states)
     calc_occ!(states, param)
     @unpack nstates, spEs = states
 
+    convergences = zeros(Bool, nstates)
+
     spEss = zeros(Float64, nstates, iter_max)
     for iter in 1:iter_max
-        @time imaginary_time_evolution!(states, param, Vs, Ws; Δt=Δt)
+        println("")
+        @show iter length(convergences[convergences])
+
+        @time imaginary_time_evolution!(states, convergences, param, Vs, Ws; Δt=Δt)
         sort_states!(states)
         spEss[:,iter] = spEs
     end
 
-    p = plot(xlabel="iter", ylabel="single-particle energy [MeV]", legend=false)
-    plot!(spEss', marker=:dot)
+    if show_result
+        p = plot(xlabel="iter", ylabel="single-particle energy [MeV]", legend=false)
+        plot!(spEss', marker=:dot)
+        display(p)
+        
+        show_states(states)
+    end
+
+    return states
+end
+
+
+function plot_nilsson_diagram(param; β_max=0.4, β_min=-0.4, Δβ=0.1, 
+        Nmax=1, iter_max=5)
+    nstates = div((Nmax+1)*(Nmax+2)*(Nmax+3), 6) * 2
+
+    βs = β_min:Δβ:β_max
+    Nβ = length(βs)
+
+    spEss = zeros(Float64, nstates, Nβ)
+
+    for iβ in 1:Nβ
+        β = βs[iβ]
+        println("")
+        @show β
+
+        @time states = calc_states(param; β=β, Nmax=Nmax, iter_max=iter_max)
+
+        #spEss[:,iβ] = states.spEs 
+        for istate in 1:nstates
+            if states.spEs[istate] < 0
+                spEss[istate,iβ] = states.spEs[istate]
+            else
+                spEss[istate,iβ] = NaN 
+            end
+        end
+    end
+
+    p = plot(xlabel="β", ylabel="single-particle energy [MeV]", legend=false)
+    plot!(βs, spEss', marker=:dot)
     display(p)
-    
-    show_states(states)
+
 end
 
 

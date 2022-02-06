@@ -4,8 +4,6 @@
 Calculate harmonic oscillator wave function.
 """
 function calc_HOWF(b, n, x)
-    #@unpack mc², ħc, ħω₀ = param 
-    #ξ = sqrt(mc²*ħω₀/(ħc*ħc)) * x 
     ξ = x/b
 
     1/√(√π * b * 2^n * factorial(n)) * exp(-0.5ξ*ξ) * hermite(n,ξ)

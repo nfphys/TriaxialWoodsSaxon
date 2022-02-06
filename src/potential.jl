@@ -33,7 +33,7 @@ function calc_potential(param, β, γ)
     dfs = first_derivative(Nx, Ny, Nz, Δx, Δy, Δz, fs)
 
     Vs = @. V₀*fs 
-    Ws = @. κ*V₀*r₀*r₀*dfs
+    Ws = @. -κ*V₀*r₀*r₀*dfs
 
     return Vs, Ws
 end
