@@ -28,11 +28,21 @@ greet() = print("Hello World!")
 
     ħω₀ = 41A^(-1/3)
 
+    # parameters of Woods-Saxon potential
     V₀ = -42.86 # [MeV]
     r₀ = 1.27 # [fm]
     R₀ = r₀*A^(1/3) # [fm]
     a = 0.67 # [fm]
     κ = 0.44
+
+    # parameters of DDDI
+    E_cut = 10.0 # [MeV]
+    k_cut = sqrt(mc²*E_cut/ħc^2)
+    a_nn = -15.0 # scattering length [fm]
+    v₀ = 2π^2*ħc^2/mc² * 2a_nn/(π - 2k_cut*a_nn)
+    v_rho = -v₀
+    R_rho = r₀*(A-2)^(1/3)
+    a_rho = 0.67 # [fm]
 
     Nx::Int64 = 10
     Ny::Int64 = Nx
@@ -196,53 +206,7 @@ end
 
 
 
-function make_three_body_Hamiltonian(param, states; Emax=10)
-    @unpack Nx, Ny, Nz, Δx, Δy, Δz, xs, ys, zs = param 
-    @unpack nstates, ψs, spEs, qnums, occ = states 
 
-    # number of two-particle states
-    N = div(2nstates*(2nstates-1), 2)
-
-    # three-body Hamiltonian
-    Hmat_3body = zeros(Float64, N, N)
-
-    n₂ = 0
-    for i₂ in 1:2nstates, k₂ in 1:i₂-1
-        if occ[i₂] == 1.0 || occ[k₂] == 1.0
-            continue 
-        end
-        if qnums[i₂].q ≠ 1 || qnums[k₂].q ≠ 1 
-            continue 
-        end
-        if spEs[i₂] + spEs[k₂] > Emax
-            continue
-        end
-
-        n₂ += 1
-
-        # single particle energy
-        Hmat[n₂, n₂] += spEs[i₂] + spEs[k₂]
-
-        n₁ = 0
-        for i₁ in 1:2nstates, k₁ in 1:i₁-1 
-            if occ[i₁] == 1.0 || occ[k₁] == 1.0
-                continue 
-            end
-            if qnums[i₁].q ≠ 1 || qnums[k₁].q ≠ 1 
-                continue 
-            end
-            if spEs[i₁] + spEs[k₁] > Emax
-                continue
-            end
-
-            n₁ += 1 
-
-
-
-        end
-    end
-    return 
-end
 
 
 

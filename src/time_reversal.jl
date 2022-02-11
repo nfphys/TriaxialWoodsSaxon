@@ -38,7 +38,8 @@ function test_time_reversal(param; Nmax=[1,1])
         spE = spEs[istate]
         qnum = qnums[istate]
 
-        time_reversal!(ψ_reversed, param, ψ)
+        @show 1
+        @time time_reversal!(ψ_reversed, param, ψ)
         qnum_reversed = QuantumNumbers(qnum, η=-1)
 
         Hmat_reversed = make_Hamiltonian(param, Vs, Ws, qnum_reversed)
