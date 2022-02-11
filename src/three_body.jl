@@ -20,6 +20,10 @@ function make_three_body_Hamiltonian(param, states; β=0.0, γ=0.0)
 
     # effective interaction
     V_nn = zeros(Float64, Nx, Ny, Nz)
+    N20 = √(5/16π)
+    N22 = √(15/32π)
+    βcosγ = β*cos(γ)
+    βsinγ = β*sin(γ)
     for iz in 1:Nz, iy in 1:Ny, ix in 1:Nx 
         x = xs[ix]
         y = ys[iy]
@@ -45,58 +49,58 @@ function make_three_body_Hamiltonian(param, states; β=0.0, γ=0.0)
     f(ix,iy,iz,α) = ix + (iy-1)*Nx + (iz-1)*Nx*Ny + (α-1)*Nx*Ny*Nz
 
     n₃₄ = 0
-    @views for i₃ in 1:2nstates, i₄ in 1:i₃-1 # i₃ < i₄
-        if occ[i₃] == 1.0 || occ[i₄] == 1.0
+    @views for i₃ in 1:2nstates, i₄ in 1:i₃-1 # i₃ > i₄
+        if occ[cld(i₃,2)] == 1.0 || occ[cld(i₄,2)] == 1.0
             continue 
         end
-        if qnums[i₃].q ≠ 1 || qnums[i₄].q ≠ 1 
+        if qnums[cld(i₃,2)].q ≠ 1 || qnums[cld(i₄,2)].q ≠ 1 
             continue 
         end
-        if spEs[i₃] + spEs[i₄] > E_cut
+        if spEs[cld(i₃,2)] + spEs[cld(i₄,2)] > E_cut
             continue
         end
 
         n₃₄ += 1
 
         # single particle energy
-        Hmat_3body[n₃₄, n₃₄] += spEs[i₃] + spEs[i₄]
+        Hmat_3body[n₃₄, n₃₄] += spEs[cld(i₃,2)] + spEs[cld(i₄,2)]
 
         if isodd(i₃)
-            ψ₃ = ψs[:,i₃]
+            ψ₃ = ψs[:,cld(i₃,2)]
         else
-            time_reversal!(ψ₃, ψs[:,i₃])
+            time_reversal!(ψ₃, param, ψs[:,cld(i₃,2)])
         end
 
-        if isood(i₄)
-            ψ₄ = ψs[:,i₄]
+        if isodd(i₄)
+            ψ₄ = ψs[:,cld(i₄,2)]
         else
-            time_reversal!(ψ₄, ψs[:,i₄])
+            time_reversal!(ψ₄, param, ψs[:,cld(i₄,2)])
         end
 
         n₁₂ = 0
-        for i₁ in 1:2nstates, i₂ in 1:i₁-1  # i₁ < i₂
-            if occ[i₁] == 1.0 || occ[i₂] == 1.0
+        for i₁ in 1:2nstates, i₂ in 1:i₁-1  # i₁ > i₂
+            if occ[cld(i₁,2)] == 1.0 || occ[cld(i₂,2)] == 1.0
                 continue 
             end
-            if qnums[i₁].q ≠ 1 || qnums[i₂].q ≠ 1 
+            if qnums[cld(i₁,2)].q ≠ 1 || qnums[cld(i₂,2)].q ≠ 1 
                 continue 
             end
-            if spEs[i₁] + spEs[i₂] > E_cut
+            if spEs[cld(i₁,2)] + spEs[cld(i₂,2)] > E_cut
                 continue
             end
 
             n₁₂ += 1 
 
-            if isood(i₁)
-                ψ₁ = ψs[:,i₁]
+            if isodd(i₁)
+                ψ₁ = ψs[:,cld(i₁,2)]
             else
-                time_reversal!(ψ₁, ψs[:,i₁])
+                time_reversal!(ψ₁, param, ψs[:,cld(i₁,2)])
             end
 
             if isodd(i₂)
-                ψ₂ = ψs[:,i₂]
+                ψ₂ = ψs[:,cld(i₂,2)]
             else
-                time_reversal!(ψ₂, ψs[:,i₂])
+                time_reversal!(ψ₂, param, ψs[:,cld(i₂,2)])
             end
 
             I = 0.0
@@ -106,12 +110,21 @@ function make_three_body_Hamiltonian(param, states; β=0.0, γ=0.0)
                 I += V_nn[ix,iy,iz]*ψ₁[i]*ψ₂[j]*(ψ₃[i]*ψ₄[j] - ψ₄[i]*ψ₃[j])
             end
 
+            if n₁₂ == n₃₄
+                E₀ = spEs[cld(i₃,2)] + spEs[cld(i₄,2)]
+                println("")
+                @show E₀ I 
+            end
+
+            Hmat_3body[n₁₂, n₃₄] += I
+
         end
     end
 
-    return Hmat_3body
+    return Hmat_3body[1:n₃₄, 1:n₃₄]
 end
 
-function test_make_three_body_Hamiltonian(param)
-    
+function test_make_three_body_Hamiltonian(param; Nmax=[2,1])
+    states = calc_states(param; Nmax=Nmax)
+    @time Hmat_3body = make_three_body_Hamiltonian(param, states)
 end

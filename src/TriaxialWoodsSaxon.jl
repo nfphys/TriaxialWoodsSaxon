@@ -14,6 +14,7 @@ include("./potential.jl")
 include("./Hamiltonian.jl")
 include("./states.jl")
 include("./time_reversal.jl")
+include("./three_body.jl")
 
 greet() = print("Hello World!")
 
