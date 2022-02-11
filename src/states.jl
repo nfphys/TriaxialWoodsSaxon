@@ -27,13 +27,23 @@ function test_calc_HOWF(param; n=0)
 end
 
 
-function initial_states(param, β, γ; Nmax=2)
+"""
+    initial_states(param, β, γ; Nmax=2)
+
+Make initial states as eigenstates of a deformed H.O. potential.
+"""
+function initial_states(param, β, γ; Nmax=[2,2])
+    @assert length(Nmax) === 2
+
     @unpack ħc, mc², A, ħω₀, Nx, Ny, Nz, xs, ys, zs = param 
     N = 4*Nx*Ny*Nz 
 
     f(ix,iy,iz,α) = ix + (iy-1)*Nx + (iz-1)*Nx*Ny + (α-1)*Nx*Ny*Nz
 
-    nstates = div((Nmax+1)*(Nmax+2)*(Nmax+3), 6) * 2
+    nstates = 0
+    for q in 1:2
+        nstates += div((Nmax[q]+1)*(Nmax[q]+2)*(Nmax[q]+3), 6) 
+    end
     ψs = zeros(Float64, N, nstates) # wave function 
     spEs = zeros(Float64, nstates) # single particle energy
     qnums = Vector{QuantumNumbers}(undef, nstates) # quantum number 
@@ -50,8 +60,8 @@ function initial_states(param, β, γ; Nmax=2)
     b₃ = sqrt(ħc*ħc/(mc²*ħω₃))
 
     istate = 0
-    for q in 1:2, nz in 0:Nmax, ny in 0:Nmax, nx in 0:Nmax
-        if (nx + ny + nz > Nmax) continue end
+    for q in 1:2, nz in 0:Nmax[q], ny in 0:Nmax[q], nx in 0:Nmax[q]
+        if (nx + ny + nz > Nmax[q]) continue end
         istate += 1
 
         α = 0
@@ -143,7 +153,11 @@ function calc_sp_energy(Hmat, ψ)
 end
 
 
-function test_initial_states(param; β=0.0, γ=0.0, Nmax=2, rtol_norm=1e-2, rtol_spE=1e-1)
+function test_initial_states(param; 
+    β=0.0, γ=0.0, Nmax=[2,2], rtol_norm=1e-2, rtol_spE=1e-1)
+
+    @assert length(Nmax) === 2
+
     @unpack ħc, mc², M, Nx, Ny, Nz, Δx, Δy, Δz, ħω₀, xs, ys, zs = param 
 
     # angular frequency

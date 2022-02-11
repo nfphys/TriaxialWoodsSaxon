@@ -4,13 +4,18 @@ function make_Hamiltonian(param, Vs, Ws, qnum)
 
     f(ix,iy,iz,α) = ix + (iy-1)*Nx + (iz-1)*Nx*Ny + (α-1)*Nx*Ny*Nz
 
-    @unpack Π = qnum 
+    @unpack Π, η = qnum 
 
     N_diff = 2
 
     Πx = SA[+1, -1, -1, +1]
     Πy = SA[+1, -1, +1, -1]
     Πz = SA[+Π, +Π, -Π, -Π]
+    if η == -1
+        Πx = SA[-1, +1, +1, -1]
+        Πy = SA[+1, -1, +1, -1]
+        Πz = SA[-Π, -Π, +Π, +Π]
+    end
 
     Sx = SA[ 0  0  0  1;
              0  0 -1  0;

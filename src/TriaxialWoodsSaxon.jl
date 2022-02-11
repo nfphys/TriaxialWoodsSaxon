@@ -13,6 +13,7 @@ include("./hermite.jl")
 include("./potential.jl")
 include("./Hamiltonian.jl")
 include("./states.jl")
+include("./time_reversal.jl")
 
 greet() = print("Hello World!")
 
@@ -21,8 +22,8 @@ greet() = print("Hello World!")
     mc² = 938.
     M = ħc^2/2mc²
 
-    Z::Int64 = 8; @assert iseven(Z) === true
-    N::Int64 = Z; @assert iseven(N) === true
+    N::Int64 = 8; @assert iseven(N) === true
+    Z::Int64 = N; @assert iseven(Z) === true
     A::Int64 = Z + N; @assert A === Z + N
 
     ħω₀ = 41A^(-1/3)
@@ -47,7 +48,8 @@ greet() = print("Hello World!")
 end
 
 @with_kw struct QuantumNumbers @deftype Int64
-    Π = 1; @assert Π === 1 || Π === -1
+    Π = 1; @assert Π === 1 || Π === -1 # parity 
+    η = 1; @assert η === 1 || η === -1 # z-signature
     q = 1; @assert q === 1 || q === 2 # q = 1 for neutron, q = 2 for proton
 end
 
@@ -68,7 +70,8 @@ end
 
 
 function imaginary_time_evolution!(states, convergences, param, Vs, Ws; 
-        Δt=0.1, rtol_spE=1e-3)
+    Δt=0.1, rtol_spE=1e-2)
+
     @unpack Nx, Ny, Nz, Δx, Δy, Δz, xs, ys, zs = param 
     @unpack nstates, ψs, spEs, qnums, occ = states
 
@@ -111,8 +114,11 @@ function imaginary_time_evolution!(states, convergences, param, Vs, Ws;
 end
 
 
-function calc_states(param; β=0.0, γ=0.0, Nmax=2,
-        Δt=0.1, iter_max=5, show_result=false)
+function calc_states(param; 
+    β=0.0, γ=0.0, Nmax=[1,1], Δt=0.1, iter_max=10, rtol_spE=1e-2,
+    show_result=false)
+
+    @assert length(Nmax) === 2
 
     @unpack Nx, Ny, Nz, xs, ys, zs = param 
 
@@ -130,7 +136,8 @@ function calc_states(param; β=0.0, γ=0.0, Nmax=2,
         println("")
         @show iter length(convergences[convergences])
 
-        @time imaginary_time_evolution!(states, convergences, param, Vs, Ws; Δt=Δt)
+        @time imaginary_time_evolution!(states, convergences, param, Vs, Ws; Δt=Δt, rtol_spE=rtol_spE)
+
         sort_states!(states)
         spEss[:,iter] = spEs
     end
@@ -147,9 +154,15 @@ function calc_states(param; β=0.0, γ=0.0, Nmax=2,
 end
 
 
-function plot_nilsson_diagram(param; β_max=0.4, β_min=-0.4, Δβ=0.1, 
-        Nmax=1, iter_max=5)
-    nstates = div((Nmax+1)*(Nmax+2)*(Nmax+3), 6) * 2
+function plot_nilsson_diagram(param; 
+    β_max=0.4, β_min=-0.4, Δβ=0.1, Nmax=[1,1], iter_max=5)
+
+    @assert length(Nmax) === 2
+
+    nstates = 0
+    for q in 1:2
+        nstates += div((Nmax[q]+1)*(Nmax[q]+2)*(Nmax[q]+3), 6) 
+    end
 
     βs = β_min:Δβ:β_max
     Nβ = length(βs)
@@ -176,7 +189,59 @@ function plot_nilsson_diagram(param; β_max=0.4, β_min=-0.4, Δβ=0.1,
     p = plot(xlabel="β", ylabel="single-particle energy [MeV]", legend=false)
     plot!(βs, spEss', marker=:dot)
     display(p)
+end
 
+
+
+
+
+
+function make_three_body_Hamiltonian(param, states; Emax=10)
+    @unpack Nx, Ny, Nz, Δx, Δy, Δz, xs, ys, zs = param 
+    @unpack nstates, ψs, spEs, qnums, occ = states 
+
+    # number of two-particle states
+    N = div(2nstates*(2nstates-1), 2)
+
+    # three-body Hamiltonian
+    Hmat_3body = zeros(Float64, N, N)
+
+    n₂ = 0
+    for i₂ in 1:2nstates, k₂ in 1:i₂-1
+        if occ[i₂] == 1.0 || occ[k₂] == 1.0
+            continue 
+        end
+        if qnums[i₂].q ≠ 1 || qnums[k₂].q ≠ 1 
+            continue 
+        end
+        if spEs[i₂] + spEs[k₂] > Emax
+            continue
+        end
+
+        n₂ += 1
+
+        # single particle energy
+        Hmat[n₂, n₂] += spEs[i₂] + spEs[k₂]
+
+        n₁ = 0
+        for i₁ in 1:2nstates, k₁ in 1:i₁-1 
+            if occ[i₁] == 1.0 || occ[k₁] == 1.0
+                continue 
+            end
+            if qnums[i₁].q ≠ 1 || qnums[k₁].q ≠ 1 
+                continue 
+            end
+            if spEs[i₁] + spEs[k₁] > Emax
+                continue
+            end
+
+            n₁ += 1 
+
+
+
+        end
+    end
+    return 
 end
 
 

@@ -1,3 +1,8 @@
+"""
+    calc_potential(param, β, γ)
+
+Calculate deformed Woods-Saxon potential.
+"""
 function calc_potential(param, β, γ)
     @unpack Nx, Ny, Nz, Δx, Δy, Δz, xs, ys, zs, 
     V₀, r₀, R₀, a, κ = param 
